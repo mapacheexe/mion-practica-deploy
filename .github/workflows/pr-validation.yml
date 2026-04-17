@@ -1,0 +1,51 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 1. Validar nombre de rama
+      - name: Validate branch name
+        run: |
+          BRANCH_NAME="${{ github.head_ref }}"
+          echo "Branch: $BRANCH_NAME"
+
+          if [[ ! "$BRANCH_NAME" =~ ^[0-9]+-.*$ ]]; then
+            echo "❌ Branch name must follow: 1234-description"
+            exit 1
+          fi
+
+      # 2. Validar commits
+      - name: Validate commit messages
+        run: |
+          git fetch origin main
+
+          # Obtener commits sin merges (IMPORTANTE)
+          COMMITS=$(git log HEAD ^origin/main --pretty=format:"%s" --no-merges)
+
+          echo "Commits encontrados:"
+          echo "$COMMITS"
+
+          # Si no hay commits, salir OK
+          if [ -z "$COMMITS" ]; then
+            echo "No commits to validate"
+            exit 0
+          fi
+
+          while IFS= read -r COMMIT; do
+            if [[ ! "$COMMIT" =~ ^[0-9]+-.*$ ]]; then
+              echo "❌ Invalid commit message: $COMMIT"
+              echo "Format must be: 1234-message"
+              exit 1
+            fi
+          done <<< "$COMMITS"
