@@ -11,6 +11,8 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # 1. Validar nombre de rama
       - name: Validate branch name
@@ -19,7 +21,7 @@ jobs:
           echo "Branch: $BRANCH_NAME"
 
           if [[ ! "$BRANCH_NAME" =~ ^[0-9]+-.*$ ]]; then
-            echo "❌ Branch name must follow pattern: 1234-description"
+            echo "❌ Branch name must follow: 1234-description"
             exit 1
           fi
 
@@ -27,14 +29,23 @@ jobs:
       - name: Validate commit messages
         run: |
           git fetch origin main
-          COMMITS=$(git log origin/main..HEAD --pretty=format:"%s")
 
+          # Obtener commits sin merges (IMPORTANTE)
+          COMMITS=$(git log HEAD ^origin/main --pretty=format:"%s" --no-merges)
+
+          echo "Commits encontrados:"
           echo "$COMMITS"
 
-          for COMMIT in $COMMITS; do
+          # Si no hay commits, salir OK
+          if [ -z "$COMMITS" ]; then
+            echo "No commits to validate"
+            exit 0
+          fi
+
+          while IFS= read -r COMMIT; do
             if [[ ! "$COMMIT" =~ ^[0-9]+-.*$ ]]; then
               echo "❌ Invalid commit message: $COMMIT"
               echo "Format must be: 1234-message"
               exit 1
             fi
-          done
+          done <<< "$COMMITS"
